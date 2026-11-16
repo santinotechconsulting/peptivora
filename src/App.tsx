@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { ChevronRight, Menu, ShieldCheck, ShoppingCart, X } from 'lucide-react';
+import { PRECISION_EASE } from './components/ui/MotionPrimitives.tsx';
 import type { AppRole, Locale } from './core/domain/compliance.ts';
 import {
   buildBreadcrumbs,
@@ -106,6 +108,7 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
 
   const [consentRecorded, setConsentRecorded] = useState<boolean>(() => {
     try {
@@ -195,6 +198,15 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setHeaderScrolled(window.scrollY > 12);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const loadPublicData = useCallback(async () => {
     setLoading(true);
@@ -499,10 +511,15 @@ export default function App() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen flex flex-col bg-lightgrey text-charcoal font-sans">
       {/* Sticky Top Header — Clean Responsive 3 Zones */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-silver">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <header
+        className={`sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-silver transition-shadow duration-200 ${
+          headerScrolled ? 'header-scrolled' : ''
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-8">
           <a
             href={buildPathForRoute('home', locale)}
             onClick={(e) => handleRouteAnchorClick(e, 'home')}
@@ -523,20 +540,28 @@ export default function App() {
                 ['quality', t.nav.quality],
                 ['knowledge', t.nav.knowledge],
               ] as [PageRoute, string][]
-            ).map(([r, label]) => (
-              <a
-                key={r}
-                href={buildPathForRoute(r, locale)}
-                onClick={(e) => handleRouteAnchorClick(e, r)}
-                className={`whitespace-nowrap shrink-0 py-1 border-b-2 transition-colors ${
-                  route === r
-                    ? 'border-scientific text-scientific'
-                    : 'border-transparent hover:text-scientific'
-                }`}
-              >
-                {label}
-              </a>
-            ))}
+            ).map(([r, label]) => {
+              const isActive = route === r;
+              return (
+                <a
+                  key={r}
+                  href={buildPathForRoute(r, locale)}
+                  onClick={(e) => handleRouteAnchorClick(e, r)}
+                  className={`relative whitespace-nowrap shrink-0 py-1.5 transition-colors ${
+                    isActive ? 'text-scientific' : 'hover:text-scientific'
+                  }`}
+                >
+                  <span>{label}</span>
+                  {isActive && (
+                    <motion.span
+                      layoutId="pv-primary-nav-indicator"
+                      transition={{ duration: 0.22, ease: PRECISION_EASE }}
+                      className="absolute left-0 right-0 bottom-0 h-0.5 bg-scientific rounded-full"
+                    />
+                  )}
+                </a>
+              );
+            })}
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -544,11 +569,19 @@ export default function App() {
               type="button"
               onClick={() => setCartDrawerOpen(true)}
               aria-label={`${t.nav.cart} (${cartCount})`}
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 min-h-[44px] bg-navy text-white text-xs font-semibold rounded-sm hover:bg-slate-800 whitespace-nowrap shrink-0 cursor-pointer"
+              className="btn-precision inline-flex items-center justify-center gap-2 px-3 sm:px-4 min-h-[44px] bg-navy text-white text-xs font-semibold rounded-sm hover:bg-slate-800 whitespace-nowrap shrink-0 cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" aria-hidden="true" />
               <span className="hidden xs:inline">{t.nav.cart}</span>
-              <span className="font-mono">({cartCount})</span>
+              <motion.span
+                key={cartCount}
+                initial={{ scale: 0.86 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.16, ease: PRECISION_EASE }}
+                className="font-mono tabular-nums"
+              >
+                ({cartCount})
+              </motion.span>
             </button>
 
             <button
@@ -557,7 +590,7 @@ export default function App() {
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-nav-drawer"
               aria-label={locale === 'de' ? 'Menü öffnen' : 'Open menu'}
-              className="md:hidden inline-flex items-center justify-center min-w-[44px] min-h-[44px] border border-silver rounded-sm text-navy hover:bg-lightgrey cursor-pointer"
+              className="btn-precision md:hidden inline-flex items-center justify-center min-w-[44px] min-h-[44px] border border-silver rounded-sm text-navy hover:bg-lightgrey cursor-pointer"
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -641,168 +674,180 @@ export default function App() {
       </div>
 
       {/* Mobile Slide-Out Navigation Drawer */}
-      {mobileMenuOpen && (
-        <div
-          className="md:hidden fixed inset-0 z-50 flex justify-end bg-navy/60 backdrop-blur-xs"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div
-            id="mobile-nav-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-label={locale === 'de' ? 'Mobile Navigation' : 'Mobile Navigation'}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xs h-full bg-white shadow-2xl border-l border-silver overflow-y-auto flex flex-col justify-between"
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            key="mobile-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: PRECISION_EASE }}
+            className="md:hidden fixed inset-0 z-50 flex justify-end bg-navy/60 backdrop-blur-[2px]"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            <div className="p-5 space-y-6">
-              <div className="flex items-center justify-between border-b border-silver pb-3">
-                <span className="font-display text-lg font-bold text-navy">PEPTIVORA</span>
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(false)}
-                  aria-label={locale === 'de' ? 'Menü schließen' : 'Close menu'}
-                  className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] border border-silver rounded-sm text-navy hover:bg-lightgrey cursor-pointer"
-                >
-                  <X className="w-5 h-5" aria-hidden="true" />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-mono uppercase tracking-wider text-charcoal/70">
-                  {locale === 'de' ? 'Sprache' : 'Language'}
-                </span>
-                <div
-                  role="group"
-                  aria-label="Language"
-                  className="inline-flex items-center border border-silver rounded-sm overflow-hidden font-mono text-xs"
-                >
+            <motion.div
+              key="mobile-drawer-panel"
+              id="mobile-nav-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label={locale === 'de' ? 'Mobile Navigation' : 'Mobile Navigation'}
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.24, ease: PRECISION_EASE }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xs h-full bg-white shadow-2xl border-l border-silver overflow-y-auto flex flex-col justify-between"
+            >
+              <div className="p-5 space-y-6">
+                <div className="flex items-center justify-between border-b border-silver pb-3">
+                  <span className="font-display text-lg font-bold text-navy">PEPTIVORA</span>
                   <button
                     type="button"
-                    onClick={() => switchLocale('de')}
-                    className={`min-w-[44px] min-h-[40px] cursor-pointer ${
-                      locale === 'de' ? 'bg-navy text-white font-semibold' : 'bg-white text-navy'
-                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    aria-label={locale === 'de' ? 'Menü schließen' : 'Close menu'}
+                    className="btn-precision inline-flex items-center justify-center min-w-[44px] min-h-[44px] border border-silver rounded-sm text-navy hover:bg-lightgrey cursor-pointer"
                   >
-                    DE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchLocale('en')}
-                    className={`min-w-[44px] min-h-[40px] cursor-pointer ${
-                      locale === 'en' ? 'bg-navy text-white font-semibold' : 'bg-white text-navy'
-                    }`}
-                  >
-                    EN
+                    <X className="w-5 h-5" aria-hidden="true" />
                   </button>
                 </div>
-              </div>
 
-              <nav
-                aria-label={locale === 'de' ? 'Mobile Seitenlinks' : 'Mobile page links'}
-                className="space-y-4"
-              >
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-charcoal/60 mb-1.5">
-                    {locale === 'de' ? 'Bereiche & Katalog' : 'Divisions & Catalogue'}
-                  </div>
-                  <div className="space-y-1">
-                    {(
-                      [
-                        ['home', locale === 'de' ? 'Startseite' : 'Home'],
-                        ['research', t.nav.research],
-                        ['pharmaceutical', t.nav.pharmaceutical],
-                        ['catalogue', t.nav.catalogue],
-                        ['quality', t.nav.quality],
-                        ['knowledge', t.nav.knowledge],
-                      ] as [PageRoute, string][]
-                    ).map(([r, label]) => (
-                      <a
-                        key={r}
-                        href={buildPathForRoute(r, locale)}
-                        onClick={(e) => handleRouteAnchorClick(e, r)}
-                        className={`flex items-center min-h-[44px] px-3 rounded-sm text-sm font-medium ${
-                          route === r
-                            ? 'bg-scientific/10 text-scientific font-semibold'
-                            : 'text-navy hover:bg-lightgrey'
-                        }`}
-                      >
-                        {label}
-                      </a>
-                    ))}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-charcoal/70">
+                    {locale === 'de' ? 'Sprache' : 'Language'}
+                  </span>
+                  <div
+                    role="group"
+                    aria-label="Language"
+                    className="inline-flex items-center border border-silver rounded-sm overflow-hidden font-mono text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => switchLocale('de')}
+                      className={`min-w-[44px] min-h-[40px] transition-colors cursor-pointer ${
+                        locale === 'de' ? 'bg-navy text-white font-semibold' : 'bg-white text-navy'
+                      }`}
+                    >
+                      DE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => switchLocale('en')}
+                      className={`min-w-[44px] min-h-[40px] transition-colors cursor-pointer ${
+                        locale === 'en' ? 'bg-navy text-white font-semibold' : 'bg-white text-navy'
+                      }`}
+                    >
+                      EN
+                    </button>
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-charcoal/60 mb-1.5">
-                    {locale === 'de' ? 'Unternehmen & Service' : 'Company & Support'}
+                <nav
+                  aria-label={locale === 'de' ? 'Mobile Seitenlinks' : 'Mobile page links'}
+                  className="space-y-4"
+                >
+                  <div>
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-charcoal/60 mb-1.5">
+                      {locale === 'de' ? 'Bereiche & Katalog' : 'Divisions & Catalogue'}
+                    </div>
+                    <div className="space-y-1">
+                      {(
+                        [
+                          ['home', locale === 'de' ? 'Startseite' : 'Home'],
+                          ['research', t.nav.research],
+                          ['pharmaceutical', t.nav.pharmaceutical],
+                          ['catalogue', t.nav.catalogue],
+                          ['quality', t.nav.quality],
+                          ['knowledge', t.nav.knowledge],
+                        ] as [PageRoute, string][]
+                      ).map(([r, label]) => (
+                        <a
+                          key={r}
+                          href={buildPathForRoute(r, locale)}
+                          onClick={(e) => handleRouteAnchorClick(e, r)}
+                          className={`flex items-center min-h-[44px] px-3 rounded-sm text-sm font-medium transition-colors ${
+                            route === r
+                              ? 'bg-scientific/10 text-scientific font-semibold'
+                              : 'text-navy hover:bg-lightgrey'
+                          }`}
+                        >
+                          {label}
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    {(
-                      [
-                        ['about', t.nav.about],
-                        ['blog', t.nav.blog],
-                        ['faq', t.nav.faq],
-                        ['contact', t.nav.contact],
-                        ['account', firebaseUser ? firebaseUser.email || t.nav.account : t.nav.account],
-                      ] as [PageRoute, string][]
-                    ).map(([r, label]) => (
-                      <a
-                        key={r}
-                        href={buildPathForRoute(r, locale)}
-                        onClick={(e) => handleRouteAnchorClick(e, r)}
-                        className={`flex items-center min-h-[44px] px-3 rounded-sm text-sm font-medium ${
-                          route === r
-                            ? 'bg-scientific/10 text-scientific font-semibold'
-                            : 'text-navy hover:bg-lightgrey'
-                        }`}
-                      >
-                        <span className="truncate">{label}</span>
-                      </a>
-                    ))}
 
-                    {isStaff && (
-                      <a
-                        href={buildPathForRoute('compliance', locale)}
-                        onClick={(e) => handleRouteAnchorClick(e, 'compliance')}
-                        className="flex items-center gap-2 min-h-[44px] px-3 rounded-sm text-sm font-semibold text-scientific bg-blue-50"
-                      >
-                        <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-                        <span>{t.nav.compliance}</span>
-                      </a>
-                    )}
+                  <div>
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-charcoal/60 mb-1.5">
+                      {locale === 'de' ? 'Unternehmen & Service' : 'Company & Support'}
+                    </div>
+                    <div className="space-y-1">
+                      {(
+                        [
+                          ['about', t.nav.about],
+                          ['blog', t.nav.blog],
+                          ['faq', t.nav.faq],
+                          ['contact', t.nav.contact],
+                          ['account', firebaseUser ? firebaseUser.email || t.nav.account : t.nav.account],
+                        ] as [PageRoute, string][]
+                      ).map(([r, label]) => (
+                        <a
+                          key={r}
+                          href={buildPathForRoute(r, locale)}
+                          onClick={(e) => handleRouteAnchorClick(e, r)}
+                          className={`flex items-center min-h-[44px] px-3 rounded-sm text-sm font-medium transition-colors ${
+                            route === r
+                              ? 'bg-scientific/10 text-scientific font-semibold'
+                              : 'text-navy hover:bg-lightgrey'
+                          }`}
+                        >
+                          <span className="truncate">{label}</span>
+                        </a>
+                      ))}
+
+                      {isStaff && (
+                        <a
+                          href={buildPathForRoute('compliance', locale)}
+                          onClick={(e) => handleRouteAnchorClick(e, 'compliance')}
+                          className="flex items-center gap-2 min-h-[44px] px-3 rounded-sm text-sm font-semibold text-scientific bg-blue-50"
+                        >
+                          <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+                          <span>{t.nav.compliance}</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </nav>
-            </div>
-
-            <div className="p-4 border-t border-silver bg-lightgrey text-[11px] text-charcoal/70 space-y-2">
-              <div className="flex flex-wrap gap-3">
-                <a
-                  href={buildPathForRoute('impressum', locale)}
-                  onClick={(e) => handleRouteAnchorClick(e, 'impressum')}
-                  className="hover:text-navy underline"
-                >
-                  {t.nav.impressum}
-                </a>
-                <a
-                  href={buildPathForRoute('privacy', locale)}
-                  onClick={(e) => handleRouteAnchorClick(e, 'privacy')}
-                  className="hover:text-navy underline"
-                >
-                  {t.nav.privacy}
-                </a>
-                <a
-                  href={buildPathForRoute('terms', locale)}
-                  onClick={(e) => handleRouteAnchorClick(e, 'terms')}
-                  className="hover:text-navy underline"
-                >
-                  {t.nav.terms}
-                </a>
+                </nav>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+
+              <div className="p-4 border-t border-silver bg-lightgrey text-[11px] text-charcoal/70 space-y-2">
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href={buildPathForRoute('impressum', locale)}
+                    onClick={(e) => handleRouteAnchorClick(e, 'impressum')}
+                    className="hover:text-navy underline"
+                  >
+                    {t.nav.impressum}
+                  </a>
+                  <a
+                    href={buildPathForRoute('privacy', locale)}
+                    onClick={(e) => handleRouteAnchorClick(e, 'privacy')}
+                    className="hover:text-navy underline"
+                  >
+                    {t.nav.privacy}
+                  </a>
+                  <a
+                    href={buildPathForRoute('terms', locale)}
+                    onClick={(e) => handleRouteAnchorClick(e, 'terms')}
+                    className="hover:text-navy underline"
+                  >
+                    {t.nav.terms}
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Accessible Semantic Breadcrumb Bar on Inner Routes */}
       {route !== 'home' && breadcrumbs.length > 1 && (
@@ -839,7 +884,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1">
         {loading && !catalog ? (
-          <div className="max-w-7xl mx-auto px-4 py-20 text-center text-sm text-charcoal/75">
+          <div className="max-w-7xl mx-auto px-4 py-20 text-center text-sm text-charcoal/75 animate-pulse">
             {t.common.loading}
           </div>
         ) : loadError ? (
@@ -849,14 +894,19 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => void loadPublicData()}
-                className="px-4 py-2 bg-navy text-white text-xs rounded-sm cursor-pointer"
+                className="btn-precision px-4 py-2 bg-navy text-white text-xs rounded-sm cursor-pointer"
               >
                 Retry
               </button>
             </div>
           </div>
         ) : (
-          <>
+          <motion.div
+            key={`${route}-${urlProductSlug ?? ''}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.16, ease: PRECISION_EASE }}
+          >
             {route === 'home' && catalog && (
               <HomePage
                 locale={locale}
@@ -1269,7 +1319,7 @@ export default function App() {
                 }}
               />
             )}
-          </>
+          </motion.div>
         )}
       </main>
 
@@ -1361,38 +1411,47 @@ export default function App() {
       </footer>
 
       {/* Cookie Consent Bar (dismissible & persisted to consent_records) */}
-      {!consentRecorded && (
-        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:max-w-md z-40 bg-white border border-navy shadow-xl rounded-sm p-4 space-y-3">
-          <div className="text-xs text-navy leading-relaxed">
-            {locale === 'de'
-              ? 'PEPTIVORA verwendet notwendige Cookies für Sprachwahl und Bereichstrennung. Optionale Einstellungen lassen sich jederzeit anpassen.'
-              : 'PEPTIVORA uses essential cookies for locale and division isolation. Optional preferences may be adjusted anytime.'}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void handleSaveCookies({ functional: true, analytics: true })}
-              className="px-3 py-1.5 bg-navy text-white text-xs font-medium rounded-sm cursor-pointer"
-            >
-              {locale === 'de' ? 'Alle akzeptieren' : 'Accept All'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSaveCookies({ functional: false, analytics: false })}
-              className="px-3 py-1.5 border border-silver text-navy text-xs font-medium rounded-sm cursor-pointer"
-            >
-              {locale === 'de' ? 'Nur Notwendige' : 'Essential Only'}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('cookies')}
-              className="px-3 py-1.5 text-xs font-medium text-scientific hover:underline cursor-pointer"
-            >
-              {t.nav.cookies}
-            </button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {!consentRecorded && (
+          <motion.div
+            key="cookie-consent-bar"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.22, ease: PRECISION_EASE }}
+            className="fixed bottom-4 right-4 left-4 sm:left-auto sm:max-w-md z-40 bg-white border border-navy shadow-xl rounded-sm p-4 space-y-3"
+          >
+            <div className="text-xs text-navy leading-relaxed">
+              {locale === 'de'
+                ? 'PEPTIVORA verwendet notwendige Cookies für Sprachwahl und Bereichstrennung. Optionale Einstellungen lassen sich jederzeit anpassen.'
+                : 'PEPTIVORA uses essential cookies for locale and division isolation. Optional preferences may be adjusted anytime.'}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveCookies({ functional: true, analytics: true })}
+                className="btn-precision px-3 py-1.5 bg-navy text-white text-xs font-medium rounded-sm hover:bg-slate-800 cursor-pointer"
+              >
+                {locale === 'de' ? 'Alle akzeptieren' : 'Accept All'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveCookies({ functional: false, analytics: false })}
+                className="btn-precision px-3 py-1.5 border border-silver text-navy text-xs font-medium rounded-sm hover:bg-lightgrey cursor-pointer"
+              >
+                {locale === 'de' ? 'Nur Notwendige' : 'Essential Only'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('cookies')}
+                className="px-3 py-1.5 text-xs font-medium text-scientific hover:underline cursor-pointer"
+              >
+                {t.nav.cookies}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <CartDrawer
         open={cartDrawerOpen}
@@ -1404,5 +1463,6 @@ export default function App() {
         onNavigate={navigate}
       />
     </div>
+    </MotionConfig>
   );
 }

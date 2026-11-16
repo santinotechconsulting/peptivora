@@ -30,7 +30,13 @@ import type {
   ProductVariantDto,
   PublicGovernanceSummaryDto,
 } from '../../types/peptivora.ts';
+import { AnimatePresence, motion } from 'motion/react';
 import { ProductCard } from '../ui/ProductCard.tsx';
+import {
+  PRECISION_EASE,
+  StaggerRevealGrid,
+  StaggerRevealItem,
+} from '../ui/MotionPrimitives.tsx';
 import { ResilientImage } from '../ui/ResilientImage.tsx';
 import { EuPharmacyLogoNotice } from './LegalPages.tsx';
 
@@ -287,18 +293,28 @@ export function CataloguePage({
         </div>
       ) : (
         <>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                locale={locale}
-                divisionTransactionsEnabled={Boolean(researchDiv?.transactionsEnabled)}
-                onSelectProduct={onSelectProduct}
-                onAddToCart={onAddToCart}
-              />
-            ))}
-          </div>
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={`${safePage}-${divisionFilter}-${categoryFilter}-${classFilter}-${inStockOnly}-${sortBy}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: PRECISION_EASE }}
+          >
+            <StaggerRevealGrid className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedProducts.map((product) => (
+                <StaggerRevealItem key={product.id} className="h-full">
+                  <ProductCard
+                    product={product}
+                    locale={locale}
+                    divisionTransactionsEnabled={Boolean(researchDiv?.transactionsEnabled)}
+                    onSelectProduct={onSelectProduct}
+                    onAddToCart={onAddToCart}
+                  />
+                </StaggerRevealItem>
+              ))}
+            </StaggerRevealGrid>
+          </motion.div>
+        </AnimatePresence>
 
           {/* Pagination Controls */}
           <div className="flex items-center justify-between bg-white border border-silver rounded-sm px-4 py-3 text-xs">

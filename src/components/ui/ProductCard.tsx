@@ -52,7 +52,7 @@ export function ProductCard({
     batchQty > 0;
 
   return (
-    <article className="group flex flex-col justify-between bg-white border border-silver/70 rounded-sm overflow-hidden hover:border-navy/40 transition-colors">
+    <article className="group surface-card flex flex-col justify-between bg-white border border-silver/75 rounded-sm overflow-hidden h-full">
       <div>
         <a
           href={productHref}
@@ -69,9 +69,10 @@ export function ProductCard({
             alt={locale === 'de' ? primaryImage?.altDe ?? name : primaryImage?.altEn ?? name}
             width={640}
             height={480}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out"
           />
-          <div className="absolute top-3 left-3 bg-navy/90 text-white px-2.5 py-1 rounded-sm font-mono text-[10px] tracking-wider uppercase">
+          <div className="absolute inset-0 bg-gradient-to-t from-navy/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          <div className="absolute top-3 left-3 bg-navy/90 backdrop-blur-[2px] text-white px-2.5 py-1 rounded-sm font-mono text-[10px] tracking-wider uppercase">
             {product.sku}
           </div>
           {product.isDemonstrationRecord && (
@@ -114,7 +115,7 @@ export function ProductCard({
               <dt className="text-charcoal/60 uppercase tracking-wider text-[10px] font-mono">
                 {locale === 'de' ? 'Verfügbarkeit' : 'Availability'}
               </dt>
-              <dd className="font-mono text-navy mt-0.5">
+              <dd className="font-mono text-navy mt-0.5 tabular-nums">
                 {product.stockStatus === 'in_stock' && batchQty > 0
                   ? `${t.catalogue.available} (${batchQty})`
                   : product.stockStatus === 'gated'
@@ -126,7 +127,8 @@ export function ProductCard({
               <span className="inline-flex items-center gap-1.5 text-charcoal/75">
                 <FileCheck2 className="w-3.5 h-3.5 text-scientific" aria-hidden="true" />
                 <span>
-                  {t.catalogue.docsCount}: <strong className="font-mono">{product.documents.length}</strong>
+                  {t.catalogue.docsCount}:{' '}
+                  <strong className="font-mono tabular-nums">{product.documents.length}</strong>
                 </span>
               </span>
               <span className="font-mono text-[11px] text-charcoal/70">{product.storageCondition}</span>
@@ -165,10 +167,10 @@ export function ProductCard({
                 onSelectProduct(product);
               }
             }}
-            className="inline-flex items-center gap-1 min-h-[40px] px-3.5 py-2 text-xs font-medium border border-silver rounded-sm text-navy hover:bg-lightgrey transition-colors cursor-pointer"
+            className="btn-precision inline-flex items-center gap-1 min-h-[40px] px-3.5 py-2 text-xs font-medium border border-silver rounded-sm text-navy hover:bg-lightgrey hover:border-navy/40 cursor-pointer"
           >
             <span>{t.catalogue.viewDetails}</span>
-            <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+            <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
           </a>
 
           {isOrderable && (
@@ -176,7 +178,7 @@ export function ProductCard({
               type="button"
               onClick={() => onAddToCart(product)}
               aria-label={`${t.catalogue.addToCart}: ${name}`}
-              className="inline-flex items-center gap-1 min-h-[40px] px-3.5 py-2 text-xs font-medium bg-scientific text-white rounded-sm hover:bg-blue-700 transition-colors cursor-pointer"
+              className="btn-precision inline-flex items-center gap-1 min-h-[40px] px-3.5 py-2 text-xs font-medium bg-scientific text-white rounded-sm hover:bg-blue-700 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{locale === 'de' ? 'Warenkorb' : 'Add'}</span>
