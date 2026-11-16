@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-navy: #10243A;
+  --color-scientific: #2563EB;
+  --color-light-grey: #F4F6F8;
+  --color-lightgrey: #F4F6F8;
+  --color-charcoal: #222B35;
+  --color-silver: #C8D0D9;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    color: #222B35;
+    background-color: #F4F6F8;
+    scroll-behavior: smooth;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: rgba(37, 99, 235, 0.16);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+
+  button,
+  a,
+  select,
+  input,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

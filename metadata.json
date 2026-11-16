@@ -1,0 +1,6 @@
+{
+  "name": "PEPTIVORA",
+  "description": "German biotechnology and peptide platform with independently controlled Research and Pharmaceutical compliance divisions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
