@@ -110,16 +110,20 @@ const ROLE_PRECEDENCE: AppRole[] = [
 ];
 
 let seedPromise: Promise<void> | null = null;
+let seededVerified = false;
 
 export async function ensureBaselineSeeded(): Promise<void> {
+  if (seededVerified) return;
   if (!seedPromise) {
     seedPromise = (async () => {
       try {
-        const existingDivs = await db.select().from(divisions);
-        if (existingDivs.length > 0) return;
+        await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(5539632)`);
+          const existingDivs = await tx.select().from(divisions);
+          if (existingDivs.length > 0) return;
 
-        // 1. Divisions
-        const insertedDivs = await db
+          // 1. Divisions
+          const insertedDivs = await tx
           .insert(divisions)
           .values([
             {
@@ -154,7 +158,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         const pharmaDiv = insertedDivs.find((d) => d.slug === 'pharmaceutical')!;
 
         // 2. Classifications
-        const insertedClasses = await db
+        const insertedClasses = await tx
           .insert(productClassifications)
           .values([
             {
@@ -201,7 +205,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         const otherClass = insertedClasses.find((c) => c.code === 'other_regulated')!;
 
         // 3. Categories
-        const insertedCats = await db
+        const insertedCats = await tx
           .insert(productCategories)
           .values([
             {
@@ -236,7 +240,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         const catPharma = insertedCats[2];
 
         // 4. Suppliers (clearly fictional demonstration entities)
-        const insertedSuppliers = await db
+        const insertedSuppliers = await tx
           .insert(suppliers)
           .values([
             {
@@ -250,7 +254,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         const demoSupplier = insertedSuppliers[0];
 
         // 5. Products (100% Fictional Demonstration Records)
-        const insertedProducts = await db
+        const insertedProducts = await tx
           .insert(products)
           .values([
             {
@@ -453,7 +457,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         const p6 = insertedProducts[5];
 
         // 6. Product Images
-        await db.insert(productImages).values([
+        await tx.insert(productImages).values([
           {
             productId: p1.id,
             imageUrl: '/src/assets/images/product_lyophilized_vial_1794861146550.jpg',
@@ -485,7 +489,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         ]);
 
         // 7. Variants & Inventory
-        const insertedVars = await db
+        const insertedVars = await tx
           .insert(productVariants)
           .values([
             {
@@ -515,7 +519,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
           ])
           .returning();
 
-        await db.insert(inventory).values([
+        await tx.insert(inventory).values([
           {
             productId: p1.id,
             variantId: insertedVars[0].id,
@@ -546,7 +550,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         const futureExpiry = new Date('2028-12-31T23:59:59Z');
         const pastExpiry = new Date('2025-12-31T23:59:59Z');
 
-        const approvals = await db
+        const approvals = await tx
           .insert(regulatoryApprovals)
           .values([
             {
@@ -630,7 +634,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
           ])
           .returning();
 
-        await db.insert(approvalHistory).values(
+        await tx.insert(approvalHistory).values(
           approvals.map((a) => ({
             regulatoryApprovalId: a.id,
             productId: a.productId,
@@ -642,7 +646,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         );
 
         // 9. Shipping methods & Coupons
-        await db.insert(shippingMethods).values([
+        await tx.insert(shippingMethods).values([
           {
             code: 'cold-chain-de',
             nameDe: 'Kühlketten-Kurier Deutschland (2–8 °C / -20 °C)',
@@ -663,7 +667,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
           },
         ]);
 
-        await db.insert(coupons).values([
+        await tx.insert(coupons).values([
           {
             code: 'DEMO-LAB-10',
             descriptionDe: '10 % Demonstrationsrabatt für verifizierte Forschungseinrichtungen',
@@ -675,7 +679,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         ]);
 
         // 10. Editorial Authors, Blog Categories & Bilingual Articles
-        const insertedAuthors = await db
+        const insertedAuthors = await tx
           .insert(authors)
           .values([
             {
@@ -695,7 +699,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
           ])
           .returning();
 
-        const insertedBlogCats = await db
+        const insertedBlogCats = await tx
           .insert(blogCategories)
           .values([
             {
@@ -711,7 +715,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
           ])
           .returning();
 
-        await db.insert(blogPosts).values([
+        await tx.insert(blogPosts).values([
           {
             slug: 'amg-boundary-and-ruo-governance',
             categoryId: insertedBlogCats[0].id,
@@ -747,7 +751,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
         ]);
 
         // 11. Site Settings & Initial Audit Entry
-        await db.insert(siteSettings).values([
+        await tx.insert(siteSettings).values([
           {
             key: 'platform_governance',
             valueJson: JSON.stringify({
@@ -758,7 +762,7 @@ export async function ensureBaselineSeeded(): Promise<void> {
           },
         ]);
 
-        await db.insert(auditLogs).values({
+        await tx.insert(auditLogs).values({
           actorUid: 'system',
           actorRole: 'system',
           action: 'INITIALIZE_32_TABLE_ARCHITECTURE',
@@ -771,6 +775,8 @@ export async function ensureBaselineSeeded(): Promise<void> {
           reason:
             'Seeded strictly fictional demonstration catalog with Pharmaceutical transactions locked.',
         });
+        });
+        seededVerified = true;
       } catch (error) {
         seedPromise = null;
         console.error('Baseline seed failed:', error);

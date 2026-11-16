@@ -212,12 +212,33 @@ export default function App() {
     setLoading(true);
     setLoadError('');
     try {
-      const [catRes, blogRes] = await Promise.all([fetch('/api/catalog'), fetch('/api/blog')]);
-      if (!catRes.ok) throw new Error('Failed to load product catalog.');
-      if (!blogRes.ok) throw new Error('Failed to load blog posts.');
-      const [catJson, blogJson] = await Promise.all([catRes.json(), blogRes.json()]);
-      setCatalog(catJson);
-      setBlog(blogJson);
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const [catRes, blogRes] = await Promise.all([fetch('/api/catalog'), fetch('/api/blog')]);
+          if (catRes.ok && blogRes.ok) {
+            const [catJson, blogJson] = await Promise.all([catRes.json(), blogRes.json()]);
+            setCatalog(catJson);
+            setBlog(blogJson);
+            return;
+          }
+          const failedRes = !catRes.ok ? catRes : blogRes;
+          let detail = !catRes.ok ? 'Failed to load product catalog.' : 'Failed to load blog posts.';
+          const contentType = failedRes.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errJson = (await failedRes.json().catch(() => null)) as { error?: string } | null;
+            if (errJson?.error) detail = `${detail} (${errJson.error})`;
+          }
+          lastErr = new Error(detail);
+          if (failedRes.status < 500) break;
+        } catch (err) {
+          lastErr = err instanceof Error ? err : new Error('Unable to reach PEPTIVORA API.');
+        }
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      throw lastErr ?? new Error('Failed to load product catalog.');
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Unable to reach PEPTIVORA API.');
     } finally {
